@@ -52,7 +52,7 @@ def io_eeg_to_mne(filepath, rescale_voltage = False, read_data = True, export_da
         
         return(file_ext)
         
-    def add_events_to_mneraw(mne_raw, events_array):
+    def add_events_to_mneraw(mne_raw, events_array = []):
         """
         If file_ext != TRC, add events to the object mne_raw.
             
@@ -124,9 +124,6 @@ def io_eeg_to_mne(filepath, rescale_voltage = False, read_data = True, export_da
             except:
                 mne_raw = mne.io.read_raw_edf(filepath, preload=True, stim_channel = stim_chan)
             ch_names = mne_raw.ch_names
-            
-            # reset event channel (set to 0) <-- Note a moi meme, pourquoi j'avais fait ça ??
-            #mne_raw._data[-1] = 0
             
             # rescale voltage *1e6 (for plotting)
             if rescale_voltage == True:
@@ -328,64 +325,68 @@ def io_eeg_to_mne(filepath, rescale_voltage = False, read_data = True, export_da
     return(mne_raw, ch_names, events_dict)
 
 if __name__ == "__main__":    
-    
-    events_array = []
-    
-    # some variables
-    export_data = False
-    rescale_voltage = False
-    load_events = False
-    plot_mne = True
+      
+    #-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_#
+    #      You should change these       #
+    #-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_#
 
-    sub_num = 8
+    # Data path parameters
+    sub_num = 5
     sess_num = 3
     run_num = 3
     chantype = "micro"
 
+    #-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_#
+    #     You might not change these     #
+    #-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_#
+
+    # Filter parameters
+    apply_filter = False
+    filter_boundaries = [200, 600]
+
+    # Open plot signal GUI
+    open_signalVis_GUI = True
+
+    # Signal parameters
+    export_data = False
+    rescale_voltage = False
+    load_events = False
+    plot_mne = True
+    events_array = []
+
+    #-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_#
+    #         Do not change these        #
+    #-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_#
+
+    # Set file path according to channel type (micro/macro)
     if chantype == "macro":
         filepath = r"F:\GardyL\Data_storage\EPIFAR_storage\BIDS_data\macro_bipolar_BIDS\sub-{:03}\ses-{:02}\eeg\sub-{:03}_ses-{:02}_task-EPIFAR_run-{:02}_eeg.edf".format(sub_num, sess_num, sub_num, sess_num, run_num)
     elif chantype == "micro":
         filepath = r"F:\GardyL\Data_storage\EPIFAR_storage\BIDS_data\micro_5KHz_BIDS\sub-{:03}\ses-{:02}\eeg\sub-{:03}_ses-{:02}_task-EPIFAR_run-{:02}_eeg.edf".format(sub_num, sess_num, sub_num, sess_num, run_num)
 
-    # run
+    # Load data
     mne_struct = io_eeg_to_mne(filepath = filepath, rescale_voltage = rescale_voltage, load_events = load_events) # downsampling_freq = 2000
     mne_raw = mne_struct[0]
     mne_raw._data.shape
     mne_raw.info["ch_names"]
     
+    # Get some info from the data
     events_dict = mne_struct[2]
-
-    # get some info from the data
     sfreq = mne_raw.info["sfreq"]
     time_stamps = len(mne_raw.get_data()[0])
     recording_duration_seconds = round(time_stamps / sfreq, 2)
     recording_duration_minutes = round(recording_duration_seconds / 60, 2)
     
     print("\n\nrecording duration = {} seconds ({} minutes)".format(recording_duration_seconds, recording_duration_minutes))
-        
-    if False: # Bandpass filter on signal
-        """
-        bugged after mne update (from 0.16 to 0.18)
-        """
-        # plot channels
+       
+    # Bandpass filter on signal
+    if apply_filter:
+        mne_raw.filter(l_freq = filter_boundaries[0], h_freq = filter_boundaries[1])
+
+    # Plot data
+    if open_signalVis_GUI:
         #events = mne.find_events(mne_raw, stim_channel=None)
-        mne_raw.filter(l_freq = 200, h_freq = 600)
-
-    scalings = 1e-3 # {'mag': 2, 'grad': 2}
-    ev_dict = {"test_1": 1, "test_2":2, "test_3":3, "test_4":4, "test_5":5, "test_6":6 }
-    mne_raw.plot(scalings=scalings, title='Data from arrays', show=True, block=True, 
-                    event_id= ev_dict, duration = 0.6, n_channels = 12)  
-
-    if False: # data for Halima
-
-        mne_raw.info["ch_names"]
-
-        data = mne_raw._data[4]
-        data_df = pd.DataFrame(data)
-        path_destination = r"F:\GardyL\h05micro_2048Hz_dataRM02.csv"
-        data_df.to_csv(path_destination, sep = ";", index = None)
-
-        data = mne_raw._data[5]
-        data_df = pd.DataFrame(data)
-        path_destination = r"F:\GardyL\h06micro_2048Hz_dataRM02.csv"
-        data_df.to_csv(path_destination, sep = ";", index = None)
+        scalings = 1e-3 # {'mag': 2, 'grad': 2}
+        ev_dict = {"test_1": 1, "test_2":2, "test_3":3, "test_4":4, "test_5":5, "test_6":6 }
+        mne_raw.plot(scalings=scalings, title='Data from arrays', show=True, block=True, 
+                        event_id= ev_dict, duration = 0.6, n_channels = 12)  
